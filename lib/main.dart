@@ -31,33 +31,10 @@ class BLEAccelerometerScreen extends StatefulWidget {
 }
 
 class _BLEAccelerometerScreenState extends State<BLEAccelerometerScreen> {
-  final FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
-  List<BluetoothDevice> devices = [];
-  String accelerometerData = "No data";
 
   @override
   void initState() {
     super.initState();
-
-    // Start scanning for BLE devices
-    flutterBlue.startScan(timeout: const Duration(seconds: 5));
-    flutterBlue.scanResults.listen((results) {
-      for (var result in results) {
-        if (!devices.contains(result.device)) {
-          setState(() {
-            devices.add(result.device);
-          });
-        }
-      }
-    });
-
-    // Listen to accelerometer data
-    accelerometerEvents.listen((event) {
-      setState(() {
-        accelerometerData =
-            "X: ${event.x.toStringAsFixed(2)}, Y: ${event.y.toStringAsFixed(2)}, Z: ${event.z.toStringAsFixed(2)}";
-      });
-    });
   }
 
   @override
@@ -65,36 +42,6 @@ class _BLEAccelerometerScreenState extends State<BLEAccelerometerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('BLE Accelerometer App'),
-      ),
-      body: Column(
-        children: [
-          // Display BLE devices
-          Expanded(
-            child: ListView.builder(
-              itemCount: devices.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(devices[index].name.isNotEmpty
-                      ? devices[index].name
-                      : "Unknown Device"),
-                  subtitle: Text(devices[index].id.toString()),
-                  onTap: () {
-                    // Handle device connection here
-                  },
-                );
-              },
-            ),
-          ),
-          const Divider(),
-          // Display accelerometer data
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              "Accelerometer Data: $accelerometerData",
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
-        ],
       ),
     );
   }
