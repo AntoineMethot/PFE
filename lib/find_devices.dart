@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'sensor_data.dart';
 
 class FindDevicesScreen extends StatefulWidget {
   const FindDevicesScreen({Key? key}) : super(key: key);
@@ -82,9 +83,28 @@ class _FindDevicesScreenState extends State<FindDevicesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Connected to $name')));
-
-      // NOTE: I removed your auto-disconnect in finally.
-      // Keep the connection open; disconnect when you actually want to.
+      // Discover services and subscribe to notifications (14-byte packets)
+      try {
+        final services = await device.discoverServices();
+        for (final s in services) {
+          for (final c in s.characteristics) {
+            // subscribe to any characteristic that supports notify
+            if (c.properties.notify) {
+              try {
+                await c.setNotifyValue(true);
+              } catch (_) {}
+              c.value.listen((value) {
+                if (value.length >= 14) {
+                  SensorData.instance.updateFromBytes(value);
+                }
+              });
+            }
+          }
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Service error: $e')));
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
