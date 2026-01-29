@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'find_devices.dart';
+
 void main() {
   runApp(const MaterialApp(home: AccelerometerScreen()));
 }
@@ -20,6 +22,27 @@ class _AccelerometerScreenState extends State<AccelerometerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.green),
+              child: Text('Menu', style: TextStyle(color: Colors.white, fontSize: 20)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.bluetooth_searching),
+              title: const Text('Find Devices'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const FindDevicesScreen(),
+                ));
+              },
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         backgroundColor: Colors.green,
         centerTitle: true,
