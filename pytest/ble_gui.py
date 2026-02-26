@@ -84,6 +84,15 @@ class BleWorker(QtCore.QObject):
         self._client: Optional[BleakClient] = None
         self._running = False
 
+    async def stop_and_reset(self):
+        """Force device to stop streaming + reset seq right now."""
+        client = await self._get_client()
+        self.status.emit("Sending STOP (0x00) + RESET (0x02)...")
+        # Order: stop first, then reset
+        await client.write_gatt_char(WRITE_UUID, bytes([0x00]), response=True)
+        await client.write_gatt_char(WRITE_UUID, bytes([0x02]), response=True)
+        self.status.emit("STOP+RESET sent.")
+
     async def ble_connect(self):
         if self._client and self._client.is_connected:
             return
@@ -301,6 +310,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_reset.clicked.connect(self.reset_clicked)
         self.btn_disconnect.clicked.connect(self.disconnect_clicked)
 
+        # Rate estimate
+        self._last_ts: Optional[float] = None
+        self._hz_est: float = 0.0
+
+        # CSV flush counter
+        self._csv_count: int = 0
+
         self.on_connected(False)
 
     def closeEvent(self, event):
@@ -325,6 +341,7 @@ class MainWindow(QtWidgets.QMainWindow):
     async def connect_clicked(self):
         try:
             await self.worker.ble_connect()
+            await self.worker.stop_and_reset()   # <--- add this
         except Exception as e:
             self.on_status(f"Connect failed: {e}")
 
@@ -359,6 +376,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @QtCore.Slot(object)
     def on_sample(self, sample: Sample):
+        # ---- Rx Hz estimate ----
+        if self._last_ts is not None:
+            dt = sample.t_s - self._last_ts
+            if dt > 0:
+                self._hz_est = 0.9 * self._hz_est + 0.1 * (1.0 / dt)
+        self._last_ts = sample.t_s
+
+        self.lbl_status.setText(
+            f"Rx ~{self._hz_est:.1f} Hz | seq={sample.data.get('seq')}"
+        )
+        
         # update table (safe)
         for k, v in sample.data.items():
             r = self.field_rows.get(k)
@@ -373,7 +401,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # write CSV
         row = [f"{sample.t_s:.6f}"] + [sample.data.get(k, "") for k in FIELDS]
         self._csv_w.writerow(row)
-        self._csv_f.flush()
+
+        self._csv_count += 1
+        if self._csv_count % 50 == 0:
+            self._csv_f.flush()
 
         # ---- Update Accel buffers ----
         for k in ["ax", "ay", "az"]:
