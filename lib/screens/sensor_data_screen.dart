@@ -9,25 +9,30 @@ class SensorDataScreen extends StatefulWidget {
   const SensorDataScreen({
     super.key,
     required this.device,
-    required this.imuDataCharacteristicUuid,
     required this.imuServiceUuid,
+    required this.imuDataCharacteristicUuid,
+    required this.imuCmdCharacteristicUuid,
   });
 
   /// Connected device (must already be connected)
   final BluetoothDevice device;
 
-  /// Service UUID that contains the notify characteristic
+  /// Service UUID that contains the characteristics
   final Guid imuServiceUuid;
 
   /// Notify characteristic UUID for the 14-byte IMU packets
   final Guid imuDataCharacteristicUuid;
+
+  /// Write characteristic UUID for commands: 0x01 start, 0x00 stop, 0x02 reset
+  final Guid imuCmdCharacteristicUuid;
 
   @override
   State<SensorDataScreen> createState() => _SensorDataScreenState();
 }
 
 class _SensorDataScreenState extends State<SensorDataScreen> {
-  BluetoothCharacteristic? _imuChar;
+  BluetoothCharacteristic? _imuChar; // notify
+  BluetoothCharacteristic? _cmdChar; // write commands
   StreamSubscription<List<int>>? _notifySub;
 
   bool _subscribed = false;
@@ -42,9 +47,9 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
   double _lastTs = 0.0; // seconds
   double _gravityX = 0.0, _gravityY = 0.0, _gravityZ = 0.0;
 
-  // Integrated state (meters / m/s)
-  double _velY = 0.0; // m/s (for display)
-  double _posY = 0.0; // meters (for display)
+  // Integrated state (meters / m/s) - debug display only
+  double _velY = 0.0; // m/s
+  double _posY = 0.0; // meters
 
   // Inclination (degrees) computed from gravity vector
   double _inclinationDeg = 0.0;
@@ -56,6 +61,10 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
   // Debug
   bool _debug = false;
   int _logCounter = 0;
+
+  // UI state for command buttons
+  bool _isStarting = false;
+  bool _isStopping = false;
 
   @override
   void initState() {
@@ -82,12 +91,18 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
 
       final imuChar = imuService.characteristics.firstWhere(
         (c) => c.uuid == widget.imuDataCharacteristicUuid,
-        orElse: () => throw Exception('IMU characteristic not found: ${widget.imuDataCharacteristicUuid}'),
+        orElse: () => throw Exception('IMU notify characteristic not found: ${widget.imuDataCharacteristicUuid}'),
+      );
+
+      final cmdChar = imuService.characteristics.firstWhere(
+        (c) => c.uuid == widget.imuCmdCharacteristicUuid,
+        orElse: () => throw Exception('IMU command characteristic not found: ${widget.imuCmdCharacteristicUuid}'),
       );
 
       _imuChar = imuChar;
+      _cmdChar = cmdChar;
 
-      // IMPORTANT: subscribe BEFORE listening
+      // Subscribe BEFORE listening
       await _setNotify(true);
 
       // Listen to incoming notifications
@@ -106,7 +121,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
         gy = p.gy;
         gz = p.gz;
 
-        // process
+        // process for debug display
         _processImuPacket(p);
 
         if (!mounted) return;
@@ -137,6 +152,64 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
       await c.setNotifyValue(enabled);
     } catch (_) {
       // ignore (some platforms throw if already set)
+    }
+  }
+
+  Future<void> _writeCmd(int b) async {
+    final c = _cmdChar;
+    if (c == null) {
+      throw Exception('Command characteristic not ready (connect first).');
+    }
+    await c.write([b], withoutResponse: false);
+  }
+
+  Future<void> _startStreaming() async {
+    if (_isStarting || _isStopping) return;
+    setState(() => _isStarting = true);
+    try {
+      await _writeCmd(0x01);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Start command sent (0x01)')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Start failed: $e');
+    } finally {
+      if (!mounted) return;
+      setState(() => _isStarting = false);
+    }
+  }
+
+  Future<void> _stopStreaming() async {
+    if (_isStarting || _isStopping) return;
+    setState(() => _isStopping = true);
+    try {
+      await _writeCmd(0x00);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Stop command sent (0x00)')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Stop failed: $e');
+    } finally {
+      if (!mounted) return;
+      setState(() => _isStopping = false);
+    }
+  }
+
+  Future<void> _resetSequence() async {
+    if (_isStarting || _isStopping) return;
+    try {
+      await _writeCmd(0x02);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reset command sent (0x02)')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Reset failed: $e');
     }
   }
 
@@ -198,7 +271,6 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
     // inclination from gravity vector (tilt)
     final gNorm = sqrt(_gravityX * _gravityX + _gravityY * _gravityY + _gravityZ * _gravityZ);
     if (gNorm > 1e-6) {
-      // Use Y component for "tilt" (adjust if you prefer a different axis)
       _inclinationDeg = asin((_gravityY / gNorm).clamp(-1.0, 1.0)) * 180.0 / pi;
     }
 
@@ -220,6 +292,8 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final busy = _isStarting || _isStopping;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
       appBar: AppBar(
@@ -283,12 +357,87 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
                     _triple('gx', gx, 'gy', gy, 'gz', gz),
 
                     const SizedBox(height: 16),
-
                     _kv('Position (cm)', '${(_posY * 100.0).toStringAsFixed(1)}'),
                     const SizedBox(height: 10),
                     _kv('Velocity Y (m/s)', _velY.toStringAsFixed(3)),
                     const SizedBox(height: 10),
                     _kv('Inclination (°)', _inclinationDeg.toStringAsFixed(1)),
+
+                    const SizedBox(height: 18),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF16A34A),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              onPressed: busy ? null : _startStreaming,
+                              child: _isStarting
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Text(
+                                      'Start Sensor',
+                                      style: TextStyle(fontWeight: FontWeight.w800),
+                                    ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFDC2626),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              onPressed: busy ? null : _stopStreaming,
+                              child: _isStopping
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Text(
+                                      'Stop Sensor',
+                                      style: TextStyle(fontWeight: FontWeight.w800),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1F2937),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        onPressed: busy ? null : _resetSequence,
+                        child: const Text(
+                          'Reset Sequence',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
         ),
