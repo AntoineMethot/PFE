@@ -11,11 +11,9 @@ class WorkoutProgressScreen extends StatefulWidget {
   const WorkoutProgressScreen({
     super.key,
     required this.exerciseName,
-    this.targetReps = 5, // kept for compatibility, not used right now
   });
 
   final String exerciseName;
-  final int targetReps;
 
   @override
   State<WorkoutProgressScreen> createState() => _WorkoutProgressScreenState();

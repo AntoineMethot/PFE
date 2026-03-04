@@ -94,8 +94,6 @@ class ExerciseDetailsScreen extends StatelessWidget {
                           builder:
                               (_) => WorkoutProgressScreen(
                                 exerciseName: exercise.name,
-                                targetReps:
-                                    5, // change later if user selects a rep target
                               ),
                         ),
                       );
