@@ -232,9 +232,14 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
     final mag = linearY.abs();
 
     // inclination from gravity vector (use X component to compute tilt)
-    final denom = sqrt(_gravityY * _gravityY + _gravityZ * _gravityZ);
-    if (denom > 1e-6) {
-      _inclinationDeg = atan2(_gravityX, denom) * 180.0 / pi;
+    final gNorm = sqrt(
+      _gravityX * _gravityX +
+      _gravityY * _gravityY +
+      _gravityZ * _gravityZ
+    );
+
+    if (gNorm > 1e-6) {
+      _inclinationDeg = asin(_gravityY / gNorm) * 180.0 / pi;
     }
 
     // --- Peak-based rep detection on gyro Y (gy) ---
