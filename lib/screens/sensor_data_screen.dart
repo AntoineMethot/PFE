@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-
-import '../models/rep_analysis.dart';
-import 'view_analysis_screen.dart';
 
 class SensorDataScreen extends StatefulWidget {
   const SensorDataScreen({
@@ -15,7 +13,7 @@ class SensorDataScreen extends StatefulWidget {
     required this.imuServiceUuid,
   });
 
-  /// Connected device
+  /// Connected device (must already be connected)
   final BluetoothDevice device;
 
   /// Service UUID that contains the notify characteristic
@@ -45,60 +43,19 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
   double _gravityX = 0.0, _gravityY = 0.0, _gravityZ = 0.0;
 
   // Integrated state (meters / m/s)
-  double _velX = 0.0; // m/s
-  double _posX = 0.0; // meters
-  double _velY = 0.0; // m/s (for reps)
-  double _posY = 0.0; // meters (for reps)
+  double _velY = 0.0; // m/s (for display)
+  double _posY = 0.0; // meters (for display)
 
-  // Inclination (degrees) computed from gravity vector (X axis)
+  // Inclination (degrees) computed from gravity vector
   double _inclinationDeg = 0.0;
 
-  // Detection thresholds and buffers
+  // Parameters
   final double _accelLsbPerG = 16384.0; // default sensor scale (LSB per g)
   final double _g = 9.80665;
 
-  // Raw-peak based rep detection (raw int16 on Y axis)
-  final int _posPeakRaw = 4000; // example positive peak threshold
-  final int _negPeakRaw = -5000; // example negative peak threshold
-  int _lastPeakSign = 0; // -1, 0, +1
-  double _lastPeakTs = 0.0;
-  final double _minPeakInterval = 0.08; // seconds between opposite peaks
-  // Gyro-based peak detection (use gy)
-  final int _posGyPeakRaw = 300; // example positive gyro threshold
-  final int _negGyPeakRaw = -300; // example negative gyro threshold
-
-  // Movement detection
-  bool _inMotion = false;
-  double _motionStartTs = 0.0;
-  double _lastMotionEndTs = 0.0;
-  int _repCount = 0;
-  int _setCount = 0;
-
-  // Debug / drift handling
-  bool _debug = true;
+  // Debug
+  bool _debug = false;
   int _logCounter = 0;
-  double _idleStart = 0.0;
-  
-  // Use Y axis for reps by default
-  final bool _useYAxisForReps = true;
-
-  // Buffers for current rep
-  final List<double> _curTimes = [];
-  final List<double> _curPositions = [];
-  final List<double> _curVelocities = [];
-
-  // Collected reps
-  final List<RepAnalysis> _reps = [];
-  // Reps specifically recorded for analysis (start/stop)
-  final List<RepAnalysis> _recordedReps = [];
-
-  bool _recording = false;
-
-  // Parameters
-  final double _startThreshold = 0.6; // m/s^2
-  final double _endThreshold = 0.3; // m/s^2
-  final double _minRepDisplacementCm = 2.0; // cm
-  final double _setIdleSeconds = 3.0; // seconds to consider a new set
 
   @override
   void initState() {
@@ -115,7 +72,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
 
   Future<void> _setupNotifications() async {
     try {
-      // Discover services/characteristics (must be connected)
+      // Discover services/characteristics (device must be connected)
       final services = await widget.device.discoverServices();
 
       final imuService = services.firstWhere(
@@ -130,26 +87,33 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
 
       _imuChar = imuChar;
 
+      // IMPORTANT: subscribe BEFORE listening
       await _setNotify(true);
 
       // Listen to incoming notifications
+      await _notifySub?.cancel();
       _notifySub = imuChar.onValueReceived.listen((data) {
-        if (data.length != 14) return; // ignore unexpected packets
-        final p = _parsePacket14(data);
-        if (!mounted) return;
-        // Update raw values immediately
-        seq = p.seq;
-        ax = p.ax; ay = p.ay; az = p.az;
-        gx = p.gx; gy = p.gy; gz = p.gz;
+        if (data.length != 14) return;
 
-        // Process packet (timestamps and integration)
+        final p = _parsePacket14(data);
+
+        // update raw fields
+        seq = p.seq;
+        ax = p.ax;
+        ay = p.ay;
+        az = p.az;
+        gx = p.gx;
+        gy = p.gy;
+        gz = p.gz;
+
+        // process
         _processImuPacket(p);
 
         if (!mounted) return;
         setState(() {});
       });
 
-      // Optional: auto-cancel when device disconnects
+      // auto-cancel when disconnected (prevents leaks)
       widget.device.cancelWhenDisconnected(_notifySub!);
 
       if (!mounted) return;
@@ -172,7 +136,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
     try {
       await c.setNotifyValue(enabled);
     } catch (_) {
-      // some platforms throw if already set; ignore
+      // ignore (some platforms throw if already set)
     }
   }
 
@@ -180,7 +144,6 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
   ImuPacket _parsePacket14(List<int> bytes) {
     final bd = ByteData.sublistView(Uint8List.fromList(bytes));
 
-    // seq as unsigned 16
     final seq = bd.getUint16(0, Endian.little);
 
     final ax = bd.getInt16(2, Endian.little);
@@ -194,208 +157,63 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
     return ImuPacket(seq: seq, ax: ax, ay: ay, az: az, gx: gx, gy: gy, gz: gz);
   }
 
-  // Basic processing pipeline: convert raw -> m/s^2, remove gravity via LPF,
-  // integrate to velocity and position on X axis, detect reps/sets.
+  // Convert raw -> m/s^2, estimate gravity via LPF, compute inclination,
+  // integrate Y axis for simple position readout (debug).
   void _processImuPacket(ImuPacket p) {
     final now = DateTime.now().millisecondsSinceEpoch / 1000.0;
 
-    // convert raw int16 to m/s^2 (all axes)
+    // raw int16 -> m/s^2
     final axMs2 = p.ax / _accelLsbPerG * _g;
     final ayMs2 = p.ay / _accelLsbPerG * _g;
     final azMs2 = p.az / _accelLsbPerG * _g;
 
     if (_lastTs == 0.0) {
-      // initialize gravity estimate to first sample
+      // initialize gravity estimate to first sample (all axes)
       _gravityX = axMs2;
+      _gravityY = ayMs2;
+      _gravityZ = azMs2;
       _lastTs = now;
       return;
     }
 
-    double dt = now - _lastTs;
+    var dt = now - _lastTs;
     if (dt <= 0) dt = 0.001;
-    if (dt > 0.5) dt = 0.02; // clamp very large gaps
+    if (dt > 0.5) dt = 0.02;
 
-    // low-pass for gravity estimate (time constant tau) - update all axes
-    const double tau = 0.5; // seconds
+    // LPF gravity estimate
+    const tau = 0.5; // seconds
     final alpha = tau / (tau + dt);
+
     _gravityX = alpha * _gravityX + (1 - alpha) * axMs2;
     _gravityY = alpha * _gravityY + (1 - alpha) * ayMs2;
     _gravityZ = alpha * _gravityZ + (1 - alpha) * azMs2;
 
-    final linearY = ayMs2 - _gravityY; // m/s^2 (approx) - used for reps
+    // linear accel
+    final linearY = ayMs2 - _gravityY;
 
-    // integrate on Y for reps
+    // integrate for a simple "position" display (not bar path)
     _velY += linearY * dt;
     _posY += _velY * dt;
 
-    // movement magnitude (use Y for reps)
-    final mag = linearY.abs();
-
-    // inclination from gravity vector (use X component to compute tilt)
-    final gNorm = sqrt(
-      _gravityX * _gravityX +
-      _gravityY * _gravityY +
-      _gravityZ * _gravityZ
-    );
-
+    // inclination from gravity vector (tilt)
+    final gNorm = sqrt(_gravityX * _gravityX + _gravityY * _gravityY + _gravityZ * _gravityZ);
     if (gNorm > 1e-6) {
-      _inclinationDeg = asin(_gravityY / gNorm) * 180.0 / pi;
-    }
-
-    // --- Peak-based rep detection on gyro Y (gy) ---
-    final gyRaw = p.gy;
-    int sign = 0;
-    if (gyRaw >= _posGyPeakRaw) sign = 1;
-    if (gyRaw <= _negGyPeakRaw) sign = -1;
-
-    if (sign != 0) {
-      if (_debug) print('Peak detected gy=$gyRaw sign=$sign lastPeakSign=$_lastPeakSign');
-      // if we weren't already in motion, start collecting
-      if (!_inMotion) {
-        _inMotion = true;
-        _motionStartTs = now;
-        _curTimes.clear();
-        _curPositions.clear();
-        _curVelocities.clear();
-      }
-
-      // if we see an opposite-sign peak after a previous peak, count a rep
-      if (_lastPeakSign != 0 && _lastPeakSign == -sign) {
-        final gap = now - _lastPeakTs;
-        if (_debug) print('Peak pair candidate gap=${gap.toStringAsFixed(3)}s');
-        if (gap >= _minPeakInterval) {
-          // finalize rep using buffers
-          if (_curTimes.isNotEmpty) {
-            if (_debug) print('Buffers samples=${_curTimes.length}');
-            final minP = _curPositions.reduce((a, b) => a < b ? a : b);
-            final maxP = _curPositions.reduce((a, b) => a > b ? a : b);
-            final rangeCm = (maxP - minP).abs();
-            if (_debug) print('RangeCm=${rangeCm.toStringAsFixed(2)}');
-            if (rangeCm >= _minRepDisplacementCm && _curTimes.length >= 3) {
-              final duration = _curTimes.last - _curTimes.first;
-              final peakV = _curVelocities.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
-              final avgV = _curVelocities.map((v) => v.abs()).reduce((a, b) => a + b) / _curVelocities.length;
-
-              _repCount += 1;
-              final rep = RepAnalysis(
-                repNumber: _repCount,
-                durationSec: duration,
-                peakVelocity: peakV,
-                avgVelocity: avgV,
-                rangeOfMotionCm: rangeCm,
-                timeSec: List.of(_curTimes),
-                positionCm: List.of(_curPositions),
-                velocityMs: List.of(_curVelocities),
-              );
-
-              _reps.add(rep);
-              if (_recording) {
-                _recordedReps.add(rep);
-                if (_debug) print('Added to recordedReps (#${_recordedReps.length})');
-              } else {
-                if (_debug) print('Recorded is false; rep stored in _reps only');
-              }
-              if (_debug) print('Rep (peak pair) #${_repCount}: dur=${duration.toStringAsFixed(3)}s ROM=${rangeCm.toStringAsFixed(2)}cm');
-            }
-          }
-
-          // reset motion state after a detected rep
-          _inMotion = false;
-          _lastMotionEndTs = now;
-          _lastPeakSign = 0;
-          _lastPeakTs = now;
-        }
-      } else {
-        // store this peak for potential pairing
-        _lastPeakSign = sign;
-        _lastPeakTs = now;
-      }
-    }
-
-    // idle detection -> zero velocity to limit drift (apply to Y velocity)
-    if (mag < _endThreshold) {
-      if (_idleStart == 0.0) _idleStart = now;
-      final idleDur = now - _idleStart;
-      if (idleDur > 0.5) {
-        // reset velocity when stationary for a short period
-        if (_velY.abs() < 0.5) {
-          _velY = 0.0;
-        }
-      }
-    } else {
-      _idleStart = 0.0;
-    }
-
-    // detect motion start
-    if (!_inMotion && mag > _startThreshold) {
-      _inMotion = true;
-      _motionStartTs = now;
-
-      // new set if enough idle time passed
-      if (now - _lastMotionEndTs > _setIdleSeconds) {
-        _setCount += 1;
-      }
-
-      // clear buffers
-      _curTimes.clear();
-      _curPositions.clear();
-      _curVelocities.clear();
-    }
-
-    // if in motion, collect samples (use Y position/velocity)
-    if (_inMotion) {
-      final relT = now - _motionStartTs;
-      _curTimes.add(relT);
-      _curPositions.add(_posY * 100.0); // cm
-      _curVelocities.add(_velY);
-    }
-
-    // detect motion end: when magnitude drops below end threshold
-    if (_inMotion && mag < _endThreshold) {
-      // require short buffer of low magnitude (simple debounce)
-      // if last sample duration > 0.12s since start and magnitude low, end
-      if (_curTimes.isNotEmpty && (_curTimes.last > 0.08)) {
-        // finalize rep
-        final minP = _curPositions.reduce((a, b) => a < b ? a : b);
-        final maxP = _curPositions.reduce((a, b) => a > b ? a : b);
-        final rangeCm = (maxP - minP).abs();
-
-        if (rangeCm >= _minRepDisplacementCm && _curTimes.length >= 3) {
-          final duration = _curTimes.last - _curTimes.first;
-          final peakV = _curVelocities.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
-          final avgV = _curVelocities.map((v) => v.abs()).reduce((a, b) => a + b) / _curVelocities.length;
-
-          _repCount += 1;
-          final rep = RepAnalysis(
-            repNumber: _repCount,
-            durationSec: duration,
-            peakVelocity: peakV,
-            avgVelocity: avgV,
-            rangeOfMotionCm: rangeCm,
-            timeSec: List.of(_curTimes),
-            positionCm: List.of(_curPositions),
-            velocityMs: List.of(_curVelocities),
-          );
-
-          _reps.add(rep);
-          if (_debug) {
-            print('Rep #${_repCount}: dur=${duration.toStringAsFixed(3)}s peakV=${peakV.toStringAsFixed(3)} avgV=${avgV.toStringAsFixed(3)} ROM=${rangeCm.toStringAsFixed(2)}cm');
-          }
-        }
-
-        _inMotion = false;
-        _lastMotionEndTs = now;
-        // do not zero velocity/position here; keep integration running
-      }
+      // Use Y component for "tilt" (adjust if you prefer a different axis)
+      _inclinationDeg = asin((_gravityY / gNorm).clamp(-1.0, 1.0)) * 180.0 / pi;
     }
 
     _lastTs = now;
 
-    // periodic concise debug log
     if (_debug) {
       _logCounter++;
       if (_logCounter % 10 == 0) {
-        print('IMU seq:${p.seq} dt:${dt.toStringAsFixed(4)} ay:${ayMs2.toStringAsFixed(3)} linearY:${linearY.toStringAsFixed(3)} velY:${_velY.toStringAsFixed(3)} posY:${(_posY*100).toStringAsFixed(2)}cm incl:${_inclinationDeg.toStringAsFixed(1)} mag:${mag.toStringAsFixed(3)}');
+        // ignore: avoid_print
+        print(
+          'seq:${p.seq} dt:${dt.toStringAsFixed(4)} '
+          'ay:${ayMs2.toStringAsFixed(3)} linY:${linearY.toStringAsFixed(3)} '
+          'velY:${_velY.toStringAsFixed(3)} posYcm:${(_posY * 100).toStringAsFixed(2)} '
+          'incl:${_inclinationDeg.toStringAsFixed(1)}',
+        );
       }
     }
   }
@@ -408,6 +226,22 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text('Sensor Data'),
+        actions: [
+          IconButton(
+            tooltip: 'Reconnect Stream',
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              await _notifySub?.cancel();
+              await _setNotify(false);
+              if (!mounted) return;
+              setState(() {
+                _subscribed = false;
+                _error = null;
+              });
+              await _setupNotifications();
+            },
+          ),
+        ],
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -421,125 +255,41 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
           padding: const EdgeInsets.all(16),
           child: _error != null
               ? _ErrorBox(message: _error!)
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _subscribed ? 'Receiving packets…' : 'Not subscribed',
-                        style: const TextStyle(color: Color(0xFF94A3B8)),
-                      ),
-                      const SizedBox(height: 16),
+              : ListView(
+                  children: [
+                    Text(
+                      _subscribed ? 'Receiving packets…' : 'Not subscribed',
+                      style: const TextStyle(color: Color(0xFF94A3B8)),
+                    ),
+                    const SizedBox(height: 16),
 
-                      _kv('Sequence', '$seq'),
-                      const SizedBox(height: 12),
+                    _kv('Sequence', '$seq'),
+                    const SizedBox(height: 12),
 
-                      const Text('Accelerometer (raw int16)',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      _triple('ax', ax, 'ay', ay, 'az', az),
+                    const Text(
+                      'Accelerometer (raw int16)',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    _triple('ax', ax, 'ay', ay, 'az', az),
 
-                      const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                      const Text('Gyroscope (raw int16)',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      _triple('gx', gx, 'gy', gy, 'gz', gz),
+                    const Text(
+                      'Gyroscope (raw int16)',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    _triple('gx', gx, 'gy', gy, 'gz', gz),
 
-                      const SizedBox(height: 16),
-                      _kv('Position (cm)', '${(_posY * 100.0).toStringAsFixed(1)}'),
-                      const SizedBox(height: 10),
-                      _kv('Reps', '$_repCount'),
-                      const SizedBox(height: 10),
-                      _kv('Inclination (°)', '${_inclinationDeg.toStringAsFixed(1)}'),
+                    const SizedBox(height: 16),
 
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _recording ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    if (!_recording) {
-                                      // start recording
-                                      _recordedReps.clear();
-                                      _recording = true;
-                                      _repCount = 0;
-                                      _setCount = 0;
-                                      _posY = 0.0;
-                                      _velY = 0.0;
-                                    } else {
-                                      // stop recording
-                                      _recording = false;
-                                      // if nothing was added to recordedReps during recording,
-                                      // but we have detected reps in _reps, copy them so View Analysis works
-                                      if (_recordedReps.isEmpty && _reps.isNotEmpty) {
-                                        _recordedReps.addAll(_reps);
-                                        if (_debug) print('Stop recording: copied ${_reps.length} reps into _recordedReps');
-                                      }
-                                    }
-                                  });
-                                },
-                                child: Text(_recording ? 'Stop Recording' : 'Start Recording', style: const TextStyle(fontWeight: FontWeight.w800)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1F2937),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                                onPressed: (!_recording && (_recordedReps.isNotEmpty || _reps.isNotEmpty))
-                                    ? () {
-                                        final listToShow = _recordedReps.isNotEmpty ? List.of(_recordedReps) : List.of(_reps);
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => ViewAnalysisScreen(reps: listToShow),
-                                          ),
-                                        );
-                                      }
-                                    : null,
-                                child: const Text('View Analysis', style: TextStyle(fontWeight: FontWeight.w800)),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          onPressed: () async {
-                            // quick resubscribe button if needed
-                            await _notifySub?.cancel();
-                            await _setNotify(false);
-                            setState(() {
-                              _subscribed = false;
-                              _error = null;
-                            });
-                            await _setupNotifications();
-                          },
-                          child: const Text('Reconnect Stream', style: TextStyle(fontWeight: FontWeight.w800)),
-                        ),
-                      ),
-                    ],
-                  ),
+                    _kv('Position (cm)', '${(_posY * 100.0).toStringAsFixed(1)}'),
+                    const SizedBox(height: 10),
+                    _kv('Velocity Y (m/s)', _velY.toStringAsFixed(3)),
+                    const SizedBox(height: 10),
+                    _kv('Inclination (°)', _inclinationDeg.toStringAsFixed(1)),
+                  ],
                 ),
         ),
       ),
@@ -578,8 +328,10 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
               children: [
                 Text(k, style: const TextStyle(color: Color(0xFF94A3B8))),
                 const SizedBox(height: 6),
-                Text('$v',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                Text(
+                  '$v',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+                ),
               ],
             ),
           ),

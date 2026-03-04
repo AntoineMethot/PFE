@@ -1,18 +1,17 @@
 class RepAnalysis {
   final int repNumber;
-
-  // Stats
   final double durationSec;
-  final double peakVelocity; // m/s
-  final double avgVelocity;  // m/s
+  final double peakVelocity;
+  final double avgVelocity;
   final double rangeOfMotionCm;
 
-  // Series for plotting
   final List<double> timeSec;
   final List<double> positionCm;
   final List<double> velocityMs;
 
-  const RepAnalysis({
+  final double maxInclinationDeg;   // NEW
+
+  RepAnalysis({
     required this.repNumber,
     required this.durationSec,
     required this.peakVelocity,
@@ -21,5 +20,6 @@ class RepAnalysis {
     required this.timeSec,
     required this.positionCm,
     required this.velocityMs,
+    required this.maxInclinationDeg,
   });
 }

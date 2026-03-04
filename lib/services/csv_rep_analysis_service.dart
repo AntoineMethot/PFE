@@ -9,8 +9,14 @@ class CsvRepAnalysisService {
   static const double thresholdStopDeg = 6.0;
   static const double minRepDuration = 0.8;
 
-  /// Loads the CSV saved by SetFileWriter (t_s,seq,ax,ay,az,gx,gy,gz)
-  /// Detects reps and returns RepAnalysis objects you can feed into your old screen.
+  // NEW: inclination threshold for warnings
+  static const double maxAllowedInclinationDeg = 25.0;
+
+  /// Loads the CSV saved by SetFileWriter
+  /// Expected header contains at least:
+  /// t_s, gx, gy, gz, inclination_deg
+  ///
+  /// Detects reps and returns RepAnalysis objects.
   static Future<List<RepAnalysis>> analyzeFile(String csvPath) async {
     final file = File(csvPath);
     if (!await file.exists()) {
@@ -35,9 +41,13 @@ class CsvRepAnalysisService {
     final gyIdx = col('gy');
     final gzIdx = col('gz');
 
+    // NEW column
+    final incIdx = col('inclination_deg');
+
     // Raw rows
     final t = <double>[];
     final gmagDeg = <double>[]; // gyro magnitude in deg/s
+    final inclDeg = <double>[]; // inclination in degrees
 
     for (int i = 1; i < lines.length; i++) {
       final line = lines[i].trim();
@@ -50,6 +60,7 @@ class CsvRepAnalysisService {
       final gxRaw = double.tryParse(parts[gxIdx]);
       final gyRaw = double.tryParse(parts[gyIdx]);
       final gzRaw = double.tryParse(parts[gzIdx]);
+      final inc = double.tryParse(parts[incIdx]);
 
       if (ts == null || gxRaw == null || gyRaw == null || gzRaw == null) continue;
 
@@ -62,6 +73,7 @@ class CsvRepAnalysisService {
 
       t.add(ts);
       gmagDeg.add(gmag);
+      inclDeg.add(inc ?? 0.0);
     }
 
     if (t.length < 2) return [];
@@ -82,9 +94,14 @@ class CsvRepAnalysisService {
       final timeSec = <double>[];
       final velLike = <double>[]; // store gmag (deg/s) in velocityMs
 
+      double maxInclination = 0.0;
+
       for (int i = startIdx; i <= endIdx; i++) {
         timeSec.add(t[i] - t0);
         velLike.add(gmagDeg[i]);
+
+        final inc = inclDeg[i];
+        if (inc > maxInclination) maxInclination = inc;
       }
 
       // Create a "position" curve by integrating velLike over time (trapezoid)
@@ -107,6 +124,9 @@ class CsvRepAnalysisService {
           timeSec: timeSec,
           positionCm: pos,
           velocityMs: velLike,
+
+          // NEW: you must add this field to RepAnalysis model
+          maxInclinationDeg: double.parse(maxInclination.toStringAsFixed(2)),
         ),
       );
     }
@@ -148,7 +168,6 @@ class CsvRepAnalysisService {
     }
 
     // Scale down so it doesn't blow up visually
-    // (tweak if needed)
     for (int i = 0; i < pos.length; i++) {
       pos[i] = pos[i] * 0.2;
     }
