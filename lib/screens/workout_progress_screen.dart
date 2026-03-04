@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/ble_manager.dart';
 import '../services/ble_imu_stream.dart';
 import '../services/set_file_writer.dart';
+import '../screens/analysis_from_csv_screen.dart';
 
 class WorkoutProgressScreen extends StatefulWidget {
   const WorkoutProgressScreen({
@@ -26,7 +27,8 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
   bool _starting = true;
   bool _stopping = false;
 
-  String? _status; // shows errors / save path
+  String? _lastSavedCsvPath;
+  String? _status;
   int _sampleCount = 0;
 
   StreamSubscription? _sampleSub;
@@ -38,7 +40,6 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
   }
 
   Future<void> _begin() async {
-    // Must have connected device
     if (BleManager.I.device == null || !BleManager.I.isConnected) {
       setState(() {
         _starting = false;
@@ -48,17 +49,18 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
     }
 
     try {
-      // Start streaming + notifications + buffer clear
+      // Start BLE streaming + notifications (0x01) and clear internal buffer
       await BleImuStream.I.start(sendStartCommand: true);
 
-      // Count samples (optional, but useful for debugging)
-      _sampleSub?.cancel();
+      // Track sample count (handy for debugging)
+      await _sampleSub?.cancel();
       _sampleSub = BleImuStream.I.samplesStream.listen((_) {
         if (!mounted) return;
         setState(() => _sampleCount = BleImuStream.I.buffer.length);
       });
 
-      // Start timer UI
+      // Timer UI
+      _elapsedMs = 0;
       _timer?.cancel();
       _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
         if (!mounted) return;
@@ -67,7 +69,9 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
 
       setState(() {
         _starting = false;
+        _stopping = false;
         _status = null;
+        _lastSavedCsvPath = null;
       });
     } catch (e) {
       setState(() {
@@ -78,7 +82,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
   }
 
   Future<void> _stopAndSave() async {
-    if (_stopping) return;
+    if (_stopping || _starting) return;
 
     setState(() {
       _stopping = true;
@@ -101,17 +105,13 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
         samples: BleImuStream.I.buffer,
       );
 
-      if (!mounted) return;
+      _lastSavedCsvPath = file.path;
 
+      if (!mounted) return;
       setState(() {
         _stopping = false;
-        _status =
-            "Saved ${BleImuStream.I.buffer.length} samples:\n${file.path}";
+        _status = "Saved ${BleImuStream.I.buffer.length} samples:\n${file.path}";
       });
-
-      // Optional: return to previous screen after saving
-      // Navigator.of(context).pop();
-
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -119,6 +119,17 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
         _status = "Stop/save failed: $e";
       });
     }
+  }
+
+  void _openAnalysis() {
+    final path = _lastSavedCsvPath;
+    if (path == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AnalysisFromCsvScreen(csvPath: path),
+      ),
+    );
   }
 
   String _formatTime(int ms) {
@@ -138,6 +149,9 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
   @override
   Widget build(BuildContext context) {
     final timeStr = _formatTime(_elapsedMs);
+
+    final canStop = !_starting && !_stopping;
+    final canAnalyze = _lastSavedCsvPath != null && !_starting && !_stopping;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
@@ -165,9 +179,12 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.show_chart, color: Color(0xFF22C55E), size: 36),
+                  const Icon(
+                    Icons.show_chart,
+                    color: Color(0xFF22C55E),
+                    size: 36,
+                  ),
                   const SizedBox(height: 16),
-
                   Text(
                     timeStr,
                     style: const TextStyle(
@@ -177,17 +194,18 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                       letterSpacing: 1.2,
                     ),
                   ),
-
                   const SizedBox(height: 12),
 
-                  // Small debug info (optional but helpful)
                   Text(
                     _starting
                         ? "Starting BLE..."
                         : _stopping
                             ? "Stopping..."
                             : "Samples: $_sampleCount",
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 16),
+                    style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 16,
+                    ),
                   ),
 
                   if (_status != null) ...[
@@ -212,11 +230,39 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      onPressed: (_starting || _stopping) ? null : _stopAndSave,
+                      onPressed: canStop ? _stopAndSave : null,
                       icon: const Icon(Icons.stop),
                       label: const Text(
                         "Stop & Save",
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: canAnalyze ? _openAnalysis : null,
+                      icon: const Icon(Icons.analytics),
+                      label: const Text(
+                        "View Analysis",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
