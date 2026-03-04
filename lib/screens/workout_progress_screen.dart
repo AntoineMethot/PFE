@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import '../services/ble_manager.dart';
 import '../services/ble_imu_stream.dart';
 import '../services/set_file_writer.dart';
-import '../screens/analysis_from_csv_screen.dart';
+import '../screens/exercise_analysis_screen.dart';
+import '../services/csv_rep_analysis_service.dart';
 
 class WorkoutProgressScreen extends StatefulWidget {
   const WorkoutProgressScreen({
@@ -121,16 +122,39 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
     }
   }
 
-  void _openAnalysis() {
-    final path = _lastSavedCsvPath;
-    if (path == null) return;
+  // 2) Replace your current _openAnalysis() with this one
+Future<void> _openAnalysis() async {
+  final path = _lastSavedCsvPath;
+  if (path == null) return;
+
+  try {
+    setState(() => _status = "Analyzing CSV...");
+
+    final reps = await CsvRepAnalysisService.analyzeFile(path);
+
+    if (!mounted) return;
+
+    if (reps.isEmpty) {
+      setState(() => _status = "No reps detected (try lowering thresholds).");
+      return;
+    }
+
+    // Clear status (optional)
+    setState(() => _status = null);
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => AnalysisFromCsvScreen(csvPath: path),
+        builder: (_) => ExerciseAnalysisScreen(
+          exerciseName: widget.exerciseName,
+          reps: reps,
+        ),
       ),
     );
+  } catch (e) {
+    if (!mounted) return;
+    setState(() => _status = "Analysis failed: $e");
   }
+}
 
   String _formatTime(int ms) {
     final totalSeconds = (ms / 1000).floor();
