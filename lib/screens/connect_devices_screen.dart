@@ -216,8 +216,8 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
               builder: (_) => SensorDataScreen(
                 device: first.device,
                 imuServiceUuid: Guid("12345678-1234-1234-1234-1234567890AB"),
-                imuDataCharacteristicUuid:
-                    Guid("12345678-1234-1234-1234-1234567890AC"),
+                imuDataCharacteristicUuid: Guid("12345678-1234-1234-1234-1234567890AC"),
+                imuCmdCharacteristicUuid: Guid("12345678-1234-1234-1234-1234567890AD"),
               ),
             ),
           );
