@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/exercise.dart';
 import '../widgets/exercise_card.dart';
 import '../widgets/app_menu_drawer.dart';
+import '../screens/saved_sets_screen.dart';
 
 class SelectExerciseScreen extends StatelessWidget {
   const SelectExerciseScreen({super.key});
@@ -33,9 +34,10 @@ class SelectExerciseScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
+
+      // Hamburger menu drawer (right side, since you use endDrawer)
       endDrawer: AppMenuDrawer(
-        onConnectDevices:
-            () => Navigator.of(context).pushNamed('/connect-devices'),
+        onConnectDevices: () => Navigator.of(context).pushNamed('/connect-devices'),
         onSensorData: () {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -45,7 +47,11 @@ class SelectExerciseScreen extends StatelessWidget {
             ),
           );
         },
+        onSavedSets: () {
+          Navigator.of(context).pushNamed(SavedSetsScreen.routeName);
+        },
       ),
+
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -58,14 +64,14 @@ class SelectExerciseScreen extends StatelessWidget {
         ),
         actions: [
           Builder(
-            builder:
-                (context) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(context).openEndDrawer(),
-                ),
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
           ),
         ],
       ),
+
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

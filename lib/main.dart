@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/select_exercise_screen.dart';
 import 'screens/connect_devices_screen.dart';
+import '../screens/saved_sets_screen.dart';
 
 void main() {
   runApp(const LiftTrackerApp());
@@ -17,7 +18,8 @@ class LiftTrackerApp extends StatelessWidget {
       theme: ThemeData.dark(useMaterial3: true),
       routes: {
         '/': (_) => const SelectExerciseScreen(),
-        ConnectDevicesScreen.routeName: (_) => const ConnectDevicesScreen(),
+        '/connect-devices': (_) => const ConnectDevicesScreen(),
+        SavedSetsScreen.routeName: (_) => const SavedSetsScreen(),
       },
       initialRoute: '/',
     );

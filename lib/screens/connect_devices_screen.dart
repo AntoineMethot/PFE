@@ -2,7 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import '../services/ble_manager.dart';
+
 import '../screens/sensor_data_screen.dart';
+import '../screens/saved_sets_screen.dart';
 import '../models/connected_device.dart';
 import '../widgets/app_menu_drawer.dart';
 import '../widgets/connected_device_card.dart';
@@ -18,23 +21,57 @@ class ConnectDevicesScreen extends StatefulWidget {
 
 class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
   StreamSubscription<List<ScanResult>>? _scanSub;
+  StreamSubscription<BluetoothConnectionState>? _connStateSub;
 
   bool _isScanning = false;
 
-  // Available scan results (deduped by device id)
+  // Available scan results
   final Map<String, ScanResult> _availableById = {};
 
-  // Connected devices (by id)
+  // Connected devices (UI list) - we’ll keep it, but source of truth is BleManager
   final Map<String, ConnectedDevice> _connectedById = {};
 
-  // Track connect button loading per device id
+  // Loading state per device
   final Set<String> _connectingIds = {};
 
   @override
   void initState() {
     super.initState();
 
-    // Listen to scan results stream (flutter_blue_plus 2.x)
+    // Seed UI with existing global connection (if app already connected)
+    final existing = BleManager.I.device;
+    if (existing != null) {
+      final id = existing.id.id;
+      _connectedById[id] = ConnectedDevice(
+        device: existing,
+        type: null,
+        batteryPercent: null,
+      );
+    }
+
+    // Listen to global connection state so UI stays accurate
+    _connStateSub = BleManager.I.stateStream.listen((s) {
+      if (!mounted) return;
+
+      final dev = BleManager.I.device;
+      setState(() {
+        if (s == BluetoothConnectionState.connected && dev != null) {
+          final id = dev.id.id;
+          _connectedById[id] = ConnectedDevice(
+            device: dev,
+            type: null,
+            batteryPercent: null,
+          );
+          _availableById.remove(id);
+        }
+
+        if (s == BluetoothConnectionState.disconnected) {
+          _connectedById.clear();
+        }
+      });
+    });
+
+    // Scan results stream
     _scanSub = FlutterBluePlus.onScanResults.listen(
       (results) {
         if (!mounted) return;
@@ -43,7 +80,6 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
           for (final r in results) {
             final id = r.device.id.id;
 
-            // Don’t show devices already connected in the available list
             if (_connectedById.containsKey(id)) continue;
 
             _availableById[id] = r;
@@ -52,9 +88,9 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
       },
       onError: (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Scan error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Scan error: $e')),
+        );
       },
     );
   }
@@ -63,6 +99,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
   void dispose() {
     FlutterBluePlus.stopScan();
     _scanSub?.cancel();
+    _connStateSub?.cancel();
     super.dispose();
   }
 
@@ -71,16 +108,17 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
 
     setState(() {
       _isScanning = true;
-      _availableById.clear(); // optional: clear old scan list each time
+      _availableById.clear();
     });
 
     try {
       await FlutterBluePlus.startScan(timeout: const Duration(seconds: 6));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Start scan failed: $e')));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Start scan failed: $e')),
+      );
     } finally {
       if (!mounted) return;
       setState(() => _isScanning = false);
@@ -98,23 +136,18 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
     try {
       await FlutterBluePlus.stopScan();
 
-      await dev.connect(
-        license: License.free, // required by flutter_blue_plus 2.1.0
-        timeout: const Duration(seconds: 12),
-      );
+      // Global connection via BleManager (uses license internally)
+      await BleManager.I.connect(dev);
 
       if (!mounted) return;
 
       setState(() {
-        // Move to connected section
         _connectedById[id] = ConnectedDevice(
           device: dev,
-          // You can set these later when you know what it is / read battery service
           type: null,
           batteryPercent: null,
         );
 
-        // Remove from available list
         _availableById.remove(id);
       });
 
@@ -125,9 +158,10 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Connect failed: $e')));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Connect failed: $e')),
+      );
     } finally {
       if (!mounted) return;
       setState(() => _connectingIds.remove(id));
@@ -135,20 +169,14 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
   }
 
   Future<void> _disconnect(ConnectedDevice d) async {
-    final id = d.device.id.id;
-
     try {
-      await d.device.disconnect();
-    } catch (_) {
-      // ignore
-    }
+      await BleManager.I.disconnect();
+    } catch (_) {}
 
     if (!mounted) return;
 
     setState(() {
-      _connectedById.remove(id);
-      // Optionally: move it back to available list if we still have a scan result
-      // (Most apps just let it disappear until next scan)
+      _connectedById.clear();
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -185,23 +213,19 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
 
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder:
-                  (_) => SensorDataScreen(
-                    device: first.device,
-
-                    // IMPORTANT: put YOUR UUIDs here:
-                    imuServiceUuid: Guid(
-                      "12345678-1234-1234-1234-1234567890AB",
-                    ),
-                    imuDataCharacteristicUuid: Guid(
-                      "12345678-1234-1234-1234-1234567890AC",
-                    ),
-                  ),
+              builder: (_) => SensorDataScreen(
+                device: first.device,
+                imuServiceUuid: Guid("12345678-1234-1234-1234-1234567890AB"),
+                imuDataCharacteristicUuid:
+                    Guid("12345678-1234-1234-1234-1234567890AC"),
+              ),
             ),
           );
         },
+        onSavedSets: () {
+          Navigator.of(context).pushNamed(SavedSetsScreen.routeName);
+        },
       ),
-
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -214,11 +238,10 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
         ),
         actions: [
           Builder(
-            builder:
-                (context) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(context).openEndDrawer(),
-                ),
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
           ),
         ],
       ),
@@ -269,7 +292,6 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Connected Devices
             const Text(
               'Connected Devices',
               style: TextStyle(
@@ -282,10 +304,8 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
 
             if (connectedList.isEmpty)
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 18,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 decoration: BoxDecoration(
                   color: const Color(0xFF111827),
                   borderRadius: BorderRadius.circular(16),
@@ -308,7 +328,6 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
 
             const SizedBox(height: 26),
 
-            // Available Devices + Scan button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -325,22 +344,19 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
                     backgroundColor: const Color(0xFF2563EB),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                        horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   onPressed: _isScanning ? null : _scan,
-                  icon:
-                      _isScanning
-                          ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Icon(Icons.bluetooth, size: 18),
+                  icon: _isScanning
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.bluetooth, size: 18),
                   label: Text(
                     _isScanning ? 'Scanning...' : 'Scan',
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -348,14 +364,13 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 12),
 
             if (availableList.isEmpty)
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 18,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 decoration: BoxDecoration(
                   color: const Color(0xFF111827),
                   borderRadius: BorderRadius.circular(16),
