@@ -42,7 +42,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
     if (BleManager.I.device == null || !BleManager.I.isConnected) {
       setState(() {
         _starting = false;
-        _status = "No BLE device connected. Go to Connect Devices first.";
+        _status = "Aucun appareil BLE connecte. Ouvrez d abord Connexion des appareils.";
       });
       return;
     }
@@ -75,7 +75,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
     } catch (e) {
       setState(() {
         _starting = false;
-        _status = "Start failed: $e";
+        _status = "Echec du demarrage : $e";
       });
     }
   }
@@ -85,7 +85,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
 
     setState(() {
       _stopping = true;
-      _status = "Stopping & saving...";
+      _status = "Arret et sauvegarde...";
     });
 
     _timer?.cancel();
@@ -109,13 +109,13 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       if (!mounted) return;
       setState(() {
         _stopping = false;
-        _status = "Saved ${BleImuStream.I.buffer.length} samples:\n${file.path}";
+        _status = "${BleImuStream.I.buffer.length} echantillons sauvegardes :\n${file.path}";
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _stopping = false;
-        _status = "Stop/save failed: $e";
+        _status = "Echec arret/sauvegarde : $e";
       });
     }
   }
@@ -126,14 +126,14 @@ Future<void> _openAnalysis() async {
   if (path == null) return;
 
   try {
-    setState(() => _status = "Analyzing CSV...");
+    setState(() => _status = "Analyse du CSV...");
 
     final reps = await CsvRepAnalysisService.analyzeFile(path);
 
     if (!mounted) return;
 
     if (reps.isEmpty) {
-      setState(() => _status = "No reps detected (try lowering thresholds).");
+      setState(() => _status = "Aucune repetition detectee (essayez de baisser les seuils).");
       return;
     }
 
@@ -150,7 +150,7 @@ Future<void> _openAnalysis() async {
     );
   } catch (e) {
     if (!mounted) return;
-    setState(() => _status = "Analysis failed: $e");
+    setState(() => _status = "Echec de l analyse : $e");
   }
 }
 
@@ -220,10 +220,10 @@ Future<void> _openAnalysis() async {
 
                   Text(
                     _starting
-                        ? "Starting BLE..."
+                        ? "Demarrage BLE..."
                         : _stopping
-                            ? "Stopping..."
-                            : "Samples: $_sampleCount",
+                            ? "Arret..."
+                            : "Echantillons : $_sampleCount",
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: 16,
@@ -255,7 +255,7 @@ Future<void> _openAnalysis() async {
                       onPressed: canStop ? _stopAndSave : null,
                       icon: const Icon(Icons.stop),
                       label: const Text(
-                        "Stop & Save",
+                        "Arreter et sauvegarder",
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
@@ -280,7 +280,7 @@ Future<void> _openAnalysis() async {
                       onPressed: canAnalyze ? _openAnalysis : null,
                       icon: const Icon(Icons.analytics),
                       label: const Text(
-                        "View Analysis",
+                        "Voir l analyse",
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,

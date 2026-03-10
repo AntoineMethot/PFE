@@ -86,17 +86,17 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
 
       final imuService = services.firstWhere(
         (s) => s.uuid == widget.imuServiceUuid,
-        orElse: () => throw Exception('IMU service not found: ${widget.imuServiceUuid}'),
+        orElse: () => throw Exception('Service IMU introuvable : ${widget.imuServiceUuid}'),
       );
 
       final imuChar = imuService.characteristics.firstWhere(
         (c) => c.uuid == widget.imuDataCharacteristicUuid,
-        orElse: () => throw Exception('IMU notify characteristic not found: ${widget.imuDataCharacteristicUuid}'),
+        orElse: () => throw Exception('Caracteristique de notification IMU introuvable : ${widget.imuDataCharacteristicUuid}'),
       );
 
       final cmdChar = imuService.characteristics.firstWhere(
         (c) => c.uuid == widget.imuCmdCharacteristicUuid,
-        orElse: () => throw Exception('IMU command characteristic not found: ${widget.imuCmdCharacteristicUuid}'),
+        orElse: () => throw Exception('Caracteristique de commande IMU introuvable : ${widget.imuCmdCharacteristicUuid}'),
       );
 
       _imuChar = imuChar;
@@ -158,7 +158,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
   Future<void> _writeCmd(int b) async {
     final c = _cmdChar;
     if (c == null) {
-      throw Exception('Command characteristic not ready (connect first).');
+      throw Exception('Caracteristique de commande non prete (connectez-vous d abord).');
     }
     await c.write([b], withoutResponse: false);
   }
@@ -170,11 +170,11 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
       await _writeCmd(0x01);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Start command sent (0x01)')),
+        const SnackBar(content: Text('Commande demarrer envoyee (0x01)')),
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Start failed: $e');
+      setState(() => _error = 'Echec du demarrage : $e');
     } finally {
       if (!mounted) return;
       setState(() => _isStarting = false);
@@ -188,11 +188,11 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
       await _writeCmd(0x00);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Stop command sent (0x00)')),
+        const SnackBar(content: Text('Commande arreter envoyee (0x00)')),
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Stop failed: $e');
+      setState(() => _error = 'Echec de l arret : $e');
     } finally {
       if (!mounted) return;
       setState(() => _isStopping = false);
@@ -205,11 +205,11 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
       await _writeCmd(0x02);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reset command sent (0x02)')),
+        const SnackBar(content: Text('Commande reinitialiser envoyee (0x02)')),
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Reset failed: $e');
+      setState(() => _error = 'Echec de la reinitialisation : $e');
     }
   }
 
@@ -299,10 +299,10 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Sensor Data'),
+        title: const Text('Donnees capteur'),
         actions: [
           IconButton(
-            tooltip: 'Reconnect Stream',
+            tooltip: 'Reconnecter le flux',
             icon: const Icon(Icons.refresh),
             onPressed: () async {
               await _notifySub?.cancel();
@@ -332,7 +332,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
               : ListView(
                   children: [
                     Text(
-                      _subscribed ? 'Receiving packets…' : 'Not subscribed',
+                      _subscribed ? 'Reception des paquets...' : 'Non abonne',
                       style: const TextStyle(color: Color(0xFF94A3B8)),
                     ),
                     const SizedBox(height: 16),
@@ -341,7 +341,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
                     const SizedBox(height: 12),
 
                     const Text(
-                      'Accelerometer (raw int16)',
+                      'Accelerometre (int16 brut)',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
@@ -350,7 +350,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
                     const SizedBox(height: 16),
 
                     const Text(
-                      'Gyroscope (raw int16)',
+                      'Gyroscope (int16 brut)',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
@@ -359,9 +359,9 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
                     const SizedBox(height: 16),
                     _kv('Position (cm)', '${(_posY * 100.0).toStringAsFixed(1)}'),
                     const SizedBox(height: 10),
-                    _kv('Velocity Y (m/s)', _velY.toStringAsFixed(3)),
+                    _kv('Vitesse Y (m/s)', _velY.toStringAsFixed(3)),
                     const SizedBox(height: 10),
-                    _kv('Inclination (°)', _inclinationDeg.toStringAsFixed(1)),
+                    _kv('Inclinaison (deg)', _inclinationDeg.toStringAsFixed(1)),
 
                     const SizedBox(height: 18),
 
@@ -385,7 +385,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
                                       child: CircularProgressIndicator(strokeWidth: 2),
                                     )
                                   : const Text(
-                                      'Start Sensor',
+                                      'Demarrer capteur',
                                       style: TextStyle(fontWeight: FontWeight.w800),
                                     ),
                             ),
@@ -410,7 +410,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
                                       child: CircularProgressIndicator(strokeWidth: 2),
                                     )
                                   : const Text(
-                                      'Stop Sensor',
+                                      'Arreter capteur',
                                       style: TextStyle(fontWeight: FontWeight.w800),
                                     ),
                             ),
@@ -433,7 +433,7 @@ class _SensorDataScreenState extends State<SensorDataScreen> {
                         ),
                         onPressed: busy ? null : _resetSequence,
                         child: const Text(
-                          'Reset Sequence',
+                          'Reinitialiser sequence',
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),

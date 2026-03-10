@@ -39,7 +39,7 @@ class _BleScanPageState extends State<BleScanPage> {
       onError: (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Scan error: $e")),
+          SnackBar(content: Text("Erreur de scan : $e")),
         );
       },
     );
@@ -67,7 +67,7 @@ class _BleScanPageState extends State<BleScanPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Start scan failed: $e")),
+        SnackBar(content: Text("Echec du demarrage du scan : $e")),
       );
     } finally {
       if (!mounted) return;
@@ -91,14 +91,14 @@ class _BleScanPageState extends State<BleScanPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            "Connected to ${device.name.isNotEmpty ? device.name : id}",
+            "Connecte a ${device.name.isNotEmpty ? device.name : id}",
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Connection failed: $e")),
+        SnackBar(content: Text("Echec de connexion : $e")),
       );
     } finally {
       if (!mounted) return;
@@ -117,7 +117,7 @@ class _BleScanPageState extends State<BleScanPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("BLE Devices"),
+        title: const Text("Appareils BLE"),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -128,7 +128,7 @@ class _BleScanPageState extends State<BleScanPage> {
       body: results.isEmpty
           ? Center(
               child: Text(
-                isScanning ? "Scanning..." : "No BLE devices found",
+                isScanning ? "Scan en cours..." : "Aucun appareil BLE trouve",
               ),
             )
           : ListView.builder(
@@ -138,7 +138,7 @@ class _BleScanPageState extends State<BleScanPage> {
                 final device = result.device;
                 final id = device.id.id;
 
-                final name = device.name.isNotEmpty ? device.name : "Unknown Device";
+                final name = device.name.isNotEmpty ? device.name : "Appareil inconnu";
                 final connecting = _connecting.contains(id);
 
                 return ListTile(
@@ -152,7 +152,7 @@ class _BleScanPageState extends State<BleScanPage> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text("Connect"),
+                        : const Text("Connecter"),
                   ),
                 );
               },

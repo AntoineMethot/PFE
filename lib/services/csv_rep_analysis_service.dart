@@ -20,19 +20,19 @@ class CsvRepAnalysisService {
   static Future<List<RepAnalysis>> analyzeFile(String csvPath) async {
     final file = File(csvPath);
     if (!await file.exists()) {
-      throw Exception("File does not exist: $csvPath");
+      throw Exception("Le fichier n existe pas : $csvPath");
     }
 
     final lines = await file.readAsLines();
     if (lines.isEmpty) {
-      throw Exception("CSV is empty");
+      throw Exception("Le CSV est vide");
     }
 
     final header = lines.first.split(',').map((s) => s.trim()).toList();
 
     int col(String name) {
       final idx = header.indexOf(name);
-      if (idx < 0) throw Exception("Missing column '$name' in CSV header.");
+      if (idx < 0) throw Exception("Colonne '$name' manquante dans l en-tete CSV.");
       return idx;
     }
 

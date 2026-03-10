@@ -10,23 +10,23 @@ class SelectExerciseScreen extends StatelessWidget {
   static const List<Exercise> exercises = [
     Exercise(
       id: 'bench',
-      name: 'Bench Press',
+      name: 'Developpe couche',
       description:
-          'Upper body compound exercise targeting chest, shoulders, and triceps',
-      muscles: ['Pectorals', 'Anterior Deltoids', 'Triceps'],
+          'Exercice polyarticulaire du haut du corps ciblant les pectoraux, les epaules et les triceps',
+      muscles: ['Pectoraux', 'Deltoides anterieurs', 'Triceps'],
     ),
     Exercise(
       id: 'deadlift',
-      name: 'Deadlift',
+      name: 'Souleve de terre',
       description:
-          'Full body compound exercise focusing on posterior chain development',
-      muscles: ['Hamstrings', 'Glutes', 'Lower Back', 'Traps'],
+          'Exercice polyarticulaire complet axe sur le developpement de la chaine posterieure',
+      muscles: ['Ischio-jambiers', 'Fessiers', 'Bas du dos', 'Trapezes'],
     ),
     Exercise(
       id: 'squat',
       name: 'Squat',
-      description: 'Lower body compound exercise for overall leg development',
-      muscles: ['Quadriceps', 'Glutes', 'Hamstrings', 'Core'],
+      description: 'Exercice polyarticulaire du bas du corps pour le developpement global des jambes',
+      muscles: ['Quadriceps', 'Fessiers', 'Ischio-jambiers', 'Sangle abdominale'],
     ),
   ];
 
@@ -42,7 +42,7 @@ class SelectExerciseScreen extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Open Sensor Data from Connect Devices after connecting.',
+                'Ouvrez Donnees capteur depuis Connexion des appareils apres connexion.',
               ),
             ),
           );
@@ -85,7 +85,7 @@ class SelectExerciseScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 8),
             const Text(
-              'Select Your Exercise',
+              'Choisissez votre exercice',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -94,7 +94,7 @@ class SelectExerciseScreen extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Choose an exercise to begin tracking your lift',
+              'Choisissez un exercice pour commencer le suivi',
               style: TextStyle(color: Color(0xFF94A3B8)),
             ),
             const SizedBox(height: 20),

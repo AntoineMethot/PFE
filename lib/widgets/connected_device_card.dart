@@ -13,10 +13,10 @@ class ConnectedDeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final type = device.type ?? 'BLE Device';
+    final type = device.type ?? 'Appareil BLE';
     final batteryText = device.batteryPercent == null
         ? null
-        : 'Battery: ${device.batteryPercent}%';
+        : 'Batterie : ${device.batteryPercent}%';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -97,7 +97,7 @@ class ConnectedDeviceCard extends StatelessWidget {
             ),
             onPressed: onDisconnect,
             child: const Text(
-              'Disconnect',
+              'Deconnecter',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),

@@ -38,43 +38,44 @@ class AppMenuDrawer extends StatelessWidget {
               ),
             ),
             const Divider(color: Colors.white10, height: 1),
-
             ListTile(
               leading: const Icon(Icons.bluetooth, color: Colors.white70),
-              title: const Text('Connect devices',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Connexion des appareils',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 onConnectDevices();
               },
             ),
-
             ListTile(
               leading: const Icon(Icons.sensors, color: Colors.white70),
-              title: const Text('Sensor data',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Donnees capteur',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 onSensorData();
               },
             ),
-
             ListTile(
               leading: const Icon(Icons.folder, color: Colors.white70),
-              title: const Text('Saved sets',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Series sauvegardees',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 onSavedSets();
               },
             ),
-
             const Spacer(),
-
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                '© LiftTracker',
+                '(c) LiftTracker',
                 style: TextStyle(color: Color(0xFF94A3B8)),
                 textAlign: TextAlign.center,
               ),

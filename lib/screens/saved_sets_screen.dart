@@ -46,7 +46,6 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
         return e.path.toLowerCase().endsWith('.csv');
       }).toList();
 
-      // Sort newest first
       csvs.sort((a, b) {
         final am = a.statSync().modified;
         final bm = b.statSync().modified;
@@ -90,14 +89,14 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
           title: Text(p.basename(f.path)),
           content: SingleChildScrollView(
             child: Text(
-              preview.isEmpty ? '(empty file)' : preview,
+              preview.isEmpty ? '(fichier vide)' : preview,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: const Text('Fermer'),
             ),
           ],
         ),
@@ -105,7 +104,7 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Preview failed: $e')),
+        SnackBar(content: Text('Echec de l apercu : $e')),
       );
     }
   }
@@ -117,7 +116,7 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: $e')),
+        SnackBar(content: Text('Echec de la suppression : $e')),
       );
     }
   }
@@ -129,7 +128,7 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Saved Sets'),
+        title: const Text('Series sauvegardees'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -152,7 +151,7 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        'Error: $_error',
+                        'Erreur : $_error',
                         style: const TextStyle(color: Colors.white70),
                         textAlign: TextAlign.center,
                       ),
@@ -165,25 +164,34 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.folder_open, color: Colors.white54, size: 42),
+                              const Icon(
+                                Icons.folder_open,
+                                color: Colors.white54,
+                                size: 42,
+                              ),
                               const SizedBox(height: 10),
                               const Text(
-                                'No saved sets yet',
-                                style: TextStyle(color: Colors.white70, fontSize: 18),
+                                'Aucune serie sauvegardee pour le moment',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 18,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 _setsDir == null
                                     ? ''
-                                    : 'Folder:\n${_setsDir!.path}',
-                                style: const TextStyle(color: Color(0xFF94A3B8)),
+                                    : 'Dossier :\n${_setsDir!.path}',
+                                style: const TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                ),
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 14),
                               ElevatedButton.icon(
                                 onPressed: _loadFiles,
                                 icon: const Icon(Icons.refresh),
-                                label: const Text('Refresh'),
+                                label: const Text('Actualiser'),
                               ),
                             ],
                           ),
@@ -203,8 +211,10 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
                                 border: Border.all(color: Colors.white10),
                               ),
                               child: Text(
-                                'Folder: ${_setsDir?.path ?? ''}',
-                                style: const TextStyle(color: Color(0xFF94A3B8)),
+                                'Dossier : ${_setsDir?.path ?? ''}',
+                                style: const TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                ),
                               ),
                             );
                           }
@@ -229,19 +239,30 @@ class _SavedSetsScreenState extends State<SavedSetsScreen> {
                                 ),
                               ),
                               subtitle: Text(
-                                '${_formatDate(stat.modified)} • ${_formatBytes(stat.size)}',
-                                style: const TextStyle(color: Color(0xFF94A3B8)),
+                                '${_formatDate(stat.modified)} - ${_formatBytes(stat.size)}',
+                                style: const TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                ),
                               ),
                               onTap: () => _openPreview(file),
                               trailing: PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert, color: Colors.white70),
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  color: Colors.white70,
+                                ),
                                 onSelected: (v) {
                                   if (v == 'preview') _openPreview(file);
                                   if (v == 'delete') _deleteFile(file);
                                 },
                                 itemBuilder: (_) => const [
-                                  PopupMenuItem(value: 'preview', child: Text('Preview')),
-                                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                  PopupMenuItem(
+                                    value: 'preview',
+                                    child: Text('Apercu'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Supprimer'),
+                                  ),
                                 ],
                               ),
                             ),

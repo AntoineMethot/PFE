@@ -55,10 +55,10 @@ class BleImuStream {
   Future<void> start({bool sendStartCommand = true}) async {
     final device = BleManager.I.device;
     if (device == null) {
-      throw Exception("No device connected. Connect first.");
+      throw Exception("Aucun appareil connecte. Connectez-vous d abord.");
     }
     if (!BleManager.I.isConnected) {
-      throw Exception("Device is not connected.");
+      throw Exception("L appareil n est pas connecte.");
     }
     if (_running) return;
 
@@ -67,17 +67,17 @@ class BleImuStream {
 
     final imuService = services.firstWhere(
       (s) => s.uuid == imuServiceUuid,
-      orElse: () => throw Exception("IMU service not found: $imuServiceUuid"),
+      orElse: () => throw Exception("Service IMU introuvable : $imuServiceUuid"),
     );
 
     _notifyChar = imuService.characteristics.firstWhere(
       (c) => c.uuid == imuNotifyUuid,
-      orElse: () => throw Exception("Notify characteristic not found: $imuNotifyUuid"),
+      orElse: () => throw Exception("Caracteristique de notification introuvable : $imuNotifyUuid"),
     );
 
     _cmdChar = imuService.characteristics.firstWhere(
       (c) => c.uuid == imuCmdUuid,
-      orElse: () => throw Exception("Cmd characteristic not found: $imuCmdUuid"),
+      orElse: () => throw Exception("Caracteristique de commande introuvable : $imuCmdUuid"),
     );
 
     // Enable notifications first
@@ -131,7 +131,7 @@ class BleImuStream {
 
   Future<void> sendCommand(int byte) async {
     if (_cmdChar == null) {
-      throw Exception("Cmd characteristic not ready (start() first).");
+      throw Exception("Caracteristique de commande non prete (lancez start() d abord).");
     }
 
     // Most firmwares use writeWithoutResponse for commands; both usually work.

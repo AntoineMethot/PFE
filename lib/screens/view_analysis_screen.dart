@@ -7,7 +7,7 @@ class ViewAnalysisScreen extends StatefulWidget {
   final List<RepAnalysis> reps;
   final String title;
 
-  const ViewAnalysisScreen({super.key, required this.reps, this.title = 'View Analysis'});
+  const ViewAnalysisScreen({super.key, required this.reps, this.title = 'Analyse'});
 
   @override
   State<ViewAnalysisScreen> createState() => _ViewAnalysisScreenState();
@@ -41,7 +41,7 @@ class _ViewAnalysisScreenState extends State<ViewAnalysisScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Bar Path', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+              const Text('Trajectoire de la barre', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
 
               if (reps.isEmpty)
@@ -52,7 +52,7 @@ class _ViewAnalysisScreenState extends State<ViewAnalysisScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.white10),
                   ),
-                  child: const Text('No recorded reps to display', style: TextStyle(color: Color(0xFF94A3B8))),
+                  child: const Text('Aucune repetition enregistree a afficher', style: TextStyle(color: Color(0xFF94A3B8))),
                 )
               else ...[
                 SizedBox(

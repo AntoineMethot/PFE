@@ -15,16 +15,16 @@ class ExerciseCard extends StatelessWidget {
       return const ExerciseDetails(
         exerciseId: 'deadlift',
         setupSteps: [
-          'Stand with feet hip-width apart, bar over mid-foot',
-          'Bend down and grip the bar just outside your legs',
-          'Keep your back straight and chest up',
-          'Engage your lats and brace your core',
+          'Placez vos pieds largeur hanches, barre au-dessus du milieu du pied',
+          'Descendez et saisissez la barre juste a l exterieur des jambes',
+          'Gardez le dos droit et la poitrine sortie',
+          'Engagez les dorsaux et gainez la sangle abdominale',
         ],
         executionSteps: [
-          'Push through your heels to lift the bar',
-          'Keep the bar close to your body',
-          'Extend your hips and knees simultaneously',
-          'Stand tall at the top, then lower with control',
+          'Poussez dans les talons pour soulever la barre',
+          'Gardez la barre proche du corps',
+          'Etendez hanches et genoux simultanement',
+          'Tenez-vous droit en haut puis redescendez avec controle',
         ],
       );
     }
@@ -33,12 +33,12 @@ class ExerciseCard extends StatelessWidget {
     return const ExerciseDetails(
       exerciseId: 'generic',
       setupSteps: [
-        'Get into starting position',
-        'Brace your core',
+        'Prenez la position de depart',
+        'Gainez la sangle abdominale',
       ],
       executionSteps: [
-        'Perform the movement with control',
-        'Return to start position',
+        'Realisez le mouvement avec controle',
+        'Revenez a la position de depart',
       ],
     );
   }

@@ -65,7 +65,7 @@ class ExerciseDetailsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
 
-                      _StepCard(title: 'Setup', steps: details.setupSteps),
+                      _StepCard(title: 'Mise en place', steps: details.setupSteps),
                       const SizedBox(height: 16),
                       _StepCard(
                         title: 'Execution',
@@ -100,7 +100,7 @@ class ExerciseDetailsScreen extends StatelessWidget {
                     },
                     icon: const Icon(Icons.play_arrow_rounded),
                     label: const Text(
-                      'Start Lift',
+                      'Demarrer la serie',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,

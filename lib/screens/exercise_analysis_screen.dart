@@ -31,7 +31,8 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
         reps.map((r) => r.durationSec).reduce((a, b) => a + b) / totalReps;
     final peakV = reps.map((r) => r.peakVelocity).reduce(max);
 
-    final showInclinationWarning = rep.maxInclinationDeg > _inclinationWarnThreshold;
+    final showInclinationWarning =
+        rep.maxInclinationDeg > _inclinationWarnThreshold;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
@@ -54,31 +55,29 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            /// SUMMARY
             Row(
               children: [
-                Expanded(child: _miniStat('Total Reps', '$totalReps')),
+                Expanded(child: _miniStat('Repetitions', '$totalReps')),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _miniStat(
-                    'Avg Time',
-                    '${avgTime.toStringAsFixed(1)}s',
+                    'Temps moy',
+                    '${avgTime.toStringAsFixed(1)} s',
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: _miniStat('Peak V', peakV.toStringAsFixed(0))),
+                Expanded(
+                  child: _miniStat('Vitesse max', peakV.toStringAsFixed(0)),
+                ),
               ],
             ),
-
             const SizedBox(height: 16),
-
-            /// REP PICKER
             _card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Select Rep',
+                    'Selectionner rep',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -107,7 +106,8 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            onPressed: () => setState(() => _selectedRepIndex = i),
+                            onPressed: () =>
+                                setState(() => _selectedRepIndex = i),
                             child: Text(
                               '${i + 1}',
                               style: const TextStyle(
@@ -122,68 +122,59 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            /// REP DATA
             _card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Rep ${rep.repNumber} Data',
+                    'Donnees rep ${rep.repNumber}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 14),
-
                   Row(
                     children: [
                       Expanded(
                         child: _kv(
-                          'Duration',
-                          '${rep.durationSec.toStringAsFixed(2)}s',
+                          'Duree',
+                          '${rep.durationSec.toStringAsFixed(2)} s',
                         ),
                       ),
                       Expanded(
                         child: _kv(
-                          'Peak Velocity',
-                          '${rep.peakVelocity.toStringAsFixed(1)}',
+                          'Vitesse max',
+                          rep.peakVelocity.toStringAsFixed(1),
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 10),
-
                   Row(
                     children: [
                       Expanded(
                         child: _kv(
-                          'Avg Velocity',
-                          '${rep.avgVelocity.toStringAsFixed(1)}',
+                          'Vitesse moy',
+                          rep.avgVelocity.toStringAsFixed(1),
                         ),
                       ),
                       Expanded(
                         child: _kv(
-                          'Range of Motion',
+                          'Amplitude',
                           '${rep.rangeOfMotionCm.toStringAsFixed(0)} cm',
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 10),
-
-                  // NEW: show max inclination metric
                   Row(
                     children: [
                       Expanded(
                         child: _kv(
-                          'Max Inclination',
-                          '${rep.maxInclinationDeg.toStringAsFixed(1)}°',
+                          'Inclinaison max',
+                          '${rep.maxInclinationDeg.toStringAsFixed(1)} deg',
                         ),
                       ),
                       const Expanded(child: SizedBox()),
@@ -192,8 +183,6 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                 ],
               ),
             ),
-
-            // NEW: red warning card
             if (showInclinationWarning) ...[
               const SizedBox(height: 16),
               Container(
@@ -209,8 +198,8 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Inclination exceeded 25° (${rep.maxInclinationDeg.toStringAsFixed(1)}°).\n'
-                        'Try to keep the bar/clip more level during the rep.',
+                        'Inclinaison depassee 25 deg (${rep.maxInclinationDeg.toStringAsFixed(1)} deg).\n'
+                        'Essayez de garder la barre/le clip plus horizontal pendant la repetition.',
                         style: const TextStyle(
                           color: Color(0xFFFCA5A5),
                           fontWeight: FontWeight.w700,

@@ -85,7 +85,7 @@ class AvailableDeviceCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text(
-                    'Connect',
+                    'Connecter',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
           ),

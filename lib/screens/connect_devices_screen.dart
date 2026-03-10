@@ -89,7 +89,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
       onError: (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Scan error: $e')),
+          SnackBar(content: Text('Erreur de scan : $e')),
         );
       },
     );
@@ -117,7 +117,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Start scan failed: $e')),
+        SnackBar(content: Text('Echec du demarrage du scan : $e')),
       );
     } finally {
       if (!mounted) return;
@@ -153,14 +153,14 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Connected to ${dev.name.isNotEmpty ? dev.name : id}'),
+          content: Text('Connecte a ${dev.name.isNotEmpty ? dev.name : id}'),
         ),
       );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Connect failed: $e')),
+        SnackBar(content: Text('Echec de connexion : $e')),
       );
     } finally {
       if (!mounted) return;
@@ -180,7 +180,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Disconnected from ${d.displayName}')),
+      SnackBar(content: Text('Deconnecte de ${d.displayName}')),
     );
   }
 
@@ -204,7 +204,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
         onSensorData: () {
           if (_connectedById.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Connect a device first.')),
+              const SnackBar(content: Text('Connectez d abord un appareil.')),
             );
             return;
           }
@@ -266,7 +266,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
                     Icon(Icons.arrow_back, color: Colors.white70),
                     SizedBox(width: 10),
                     Text(
-                      'Back',
+                      'Retour',
                       style: TextStyle(
                         color: Colors.white70,
                         fontWeight: FontWeight.w600,
@@ -278,7 +278,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
             ),
             const SizedBox(height: 10),
             const Text(
-              'Connect Devices',
+              'Connexion des appareils',
               style: TextStyle(
                 fontSize: 34,
                 fontWeight: FontWeight.w800,
@@ -287,13 +287,13 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Manage your BLE sensor connections',
+              'Gerez vos connexions de capteurs BLE',
               style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16),
             ),
             const SizedBox(height: 22),
 
             const Text(
-              'Connected Devices',
+              'Appareils connectes',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -313,7 +313,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
                 ),
                 child: const Center(
                   child: Text(
-                    'No devices connected yet',
+                    'Aucun appareil connecte pour le moment',
                     style: TextStyle(color: Color(0xFF94A3B8)),
                   ),
                 ),
@@ -332,7 +332,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Available Devices',
+                  'Appareils disponibles',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -358,7 +358,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
                         )
                       : const Icon(Icons.bluetooth, size: 18),
                   label: Text(
-                    _isScanning ? 'Scanning...' : 'Scan',
+                    _isScanning ? 'Scan en cours...' : 'Scanner',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -378,7 +378,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
                 ),
                 child: const Center(
                   child: Text(
-                    'Click scan to discover nearby devices',
+                    'Lancez un scan pour detecter les appareils a proximite',
                     style: TextStyle(color: Color(0xFF94A3B8)),
                   ),
                 ),
