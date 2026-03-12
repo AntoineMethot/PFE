@@ -14,7 +14,7 @@ class LiftTrackerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'LiftTracker',
+      title: 'Hercuthena',
       theme: ThemeData.dark(useMaterial3: true),
       routes: {
         '/': (_) => const SelectExerciseScreen(),

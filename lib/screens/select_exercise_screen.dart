@@ -59,7 +59,7 @@ class SelectExerciseScreen extends StatelessWidget {
           children: const [
             Icon(Icons.fitness_center, color: Color(0xFF60A5FA)),
             SizedBox(width: 8),
-            Text('LiftTracker'),
+            Text('Hercuthena'),
           ],
         ),
         actions: [

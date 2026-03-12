@@ -28,11 +28,15 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
   // Available scan results
   final Map<String, ScanResult> _availableById = {};
 
-  // Connected devices (UI list) - we’ll keep it, but source of truth is BleManager
+  // Connected devices (UI list) - source of truth still BleManager
   final Map<String, ConnectedDevice> _connectedById = {};
 
   // Loading state per device
   final Set<String> _connectingIds = {};
+
+  // NEW: filter controller + value
+  final TextEditingController _filterController = TextEditingController();
+  String _filterText = '';
 
   @override
   void initState() {
@@ -48,6 +52,13 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
         batteryPercent: null,
       );
     }
+
+    _filterController.addListener(() {
+      if (!mounted) return;
+      setState(() {
+        _filterText = _filterController.text.trim().toLowerCase();
+      });
+    });
 
     // Listen to global connection state so UI stays accurate
     _connStateSub = BleManager.I.stateStream.listen((s) {
@@ -100,6 +111,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
     FlutterBluePlus.stopScan();
     _scanSub?.cancel();
     _connStateSub?.cancel();
+    _filterController.dispose();
     super.dispose();
   }
 
@@ -136,7 +148,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
     try {
       await FlutterBluePlus.stopScan();
 
-      // Global connection via BleManager (uses license internally)
+      // Global connection via BleManager
       await BleManager.I.connect(dev);
 
       if (!mounted) return;
@@ -191,16 +203,24 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
           ..sort((a, b) => a.displayName.compareTo(b.displayName));
 
     final availableList =
-        _availableById.values.toList()..sort((a, b) {
-          final an = a.device.name.isNotEmpty ? a.device.name : a.device.id.id;
-          final bn = b.device.name.isNotEmpty ? b.device.name : b.device.id.id;
-          return an.compareTo(bn);
-        });
+        _availableById.values.where((r) {
+          if (_filterText.isEmpty) return true;
+
+          final name = r.device.name.toLowerCase();
+          final id = r.device.id.id.toLowerCase();
+
+          return name.contains(_filterText) || id.contains(_filterText);
+        }).toList()
+          ..sort((a, b) {
+            final an = a.device.name.isNotEmpty ? a.device.name : a.device.id.id;
+            final bn = b.device.name.isNotEmpty ? b.device.name : b.device.id.id;
+            return an.compareTo(bn);
+          });
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
       endDrawer: AppMenuDrawer(
-        onConnectDevices: () {}, // already on this page
+        onConnectDevices: () {},
         onSensorData: () {
           if (_connectedById.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -233,7 +253,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
           children: const [
             Icon(Icons.fitness_center, color: Color(0xFF60A5FA)),
             SizedBox(width: 8),
-            Text('LiftTracker'),
+            Text('Hercuthena'),
           ],
         ),
         actions: [
@@ -304,8 +324,7 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
 
             if (connectedList.isEmpty)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 decoration: BoxDecoration(
                   color: const Color(0xFF111827),
                   borderRadius: BorderRadius.circular(16),
@@ -344,7 +363,9 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
                     backgroundColor: const Color(0xFF2563EB),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -367,10 +388,40 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
 
             const SizedBox(height: 12),
 
-            if (availableList.isEmpty)
+            // NEW: filter box
+            TextField(
+              controller: _filterController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Filtrer par nom ou ID',
+                hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8)),
+                suffixIcon: _filterText.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, color: Color(0xFF94A3B8)),
+                        onPressed: () {
+                          _filterController.clear();
+                        },
+                      ),
+                filled: true,
+                fillColor: const Color(0xFF111827),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Colors.white10),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFF2563EB)),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            if (_availableById.isEmpty)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 decoration: BoxDecoration(
                   color: const Color(0xFF111827),
                   borderRadius: BorderRadius.circular(16),
@@ -379,6 +430,21 @@ class _ConnectDevicesScreenState extends State<ConnectDevicesScreen> {
                 child: const Center(
                   child: Text(
                     'Lancez un scan pour detecter les appareils a proximite',
+                    style: TextStyle(color: Color(0xFF94A3B8)),
+                  ),
+                ),
+              )
+            else if (availableList.isEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111827),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Aucun appareil ne correspond au filtre',
                     style: TextStyle(color: Color(0xFF94A3B8)),
                   ),
                 ),
