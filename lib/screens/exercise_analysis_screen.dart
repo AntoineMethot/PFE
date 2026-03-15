@@ -67,7 +67,10 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _miniStat('Vitesse max', peakV.toStringAsFixed(0)),
+                  child: _miniStat(
+                    'Vitesse max',
+                    '${peakV.toStringAsFixed(2)} m/s',
+                  ),
                 ),
               ],
             ),
@@ -94,7 +97,7 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                         final selected = i == _selectedRepIndex;
                         final hasInclinationWarning =
                             reps[i].maxInclinationDeg >
-                            _inclinationWarnThreshold;
+                                _inclinationWarnThreshold;
 
                         Color backgroundColor;
                         if (selected) {
@@ -156,7 +159,7 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                       Expanded(
                         child: _kv(
                           'Vitesse max',
-                          rep.peakVelocity.toStringAsFixed(1),
+                          '${rep.peakVelocity.toStringAsFixed(2)} m/s',
                         ),
                       ),
                     ],
@@ -167,15 +170,10 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                       Expanded(
                         child: _kv(
                           'Vitesse moy',
-                          rep.avgVelocity.toStringAsFixed(1),
+                          '${rep.avgVelocity.toStringAsFixed(2)} m/s',
                         ),
                       ),
-                      Expanded(
-                        child: _kv(
-                          'Amplitude',
-                          '${rep.rangeOfMotionCm.toStringAsFixed(0)} cm',
-                        ),
-                      ),
+                      const Expanded(child: SizedBox()),
                     ],
                   ),
                   const SizedBox(height: 10),

@@ -27,7 +27,7 @@ class AppMenuDrawer extends StatelessWidget {
                   Icon(Icons.fitness_center, color: Color(0xFF60A5FA)),
                   SizedBox(width: 10),
                   Text(
-                    'LiftTracker',
+                    'Hercuthena',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
