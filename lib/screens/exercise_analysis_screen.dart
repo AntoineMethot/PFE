@@ -29,7 +29,7 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
     final totalReps = reps.length;
     final avgTime =
         reps.map((r) => r.durationSec).reduce((a, b) => a + b) / totalReps;
-    final peakV = reps.map((r) => r.peakVelocity).reduce(max);
+    final peakV = reps.map((r) => r.peakVelocity).reduce(max) / 100.0;
 
     final showInclinationWarning =
         rep.maxInclinationDeg > _inclinationWarnThreshold;
@@ -97,7 +97,7 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                         final selected = i == _selectedRepIndex;
                         final hasInclinationWarning =
                             reps[i].maxInclinationDeg >
-                                _inclinationWarnThreshold;
+                            _inclinationWarnThreshold;
 
                         Color backgroundColor;
                         if (selected) {
@@ -159,7 +159,7 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                       Expanded(
                         child: _kv(
                           'Vitesse max',
-                          '${rep.peakVelocity.toStringAsFixed(2)} m/s',
+                          '${(rep.peakVelocity / 100.0).toStringAsFixed(2)} m/s',
                         ),
                       ),
                     ],
@@ -170,7 +170,7 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                       Expanded(
                         child: _kv(
                           'Vitesse moy',
-                          '${rep.avgVelocity.toStringAsFixed(2)} m/s',
+                          '${(rep.avgVelocity / 100.0).toStringAsFixed(2)} m/s',
                         ),
                       ),
                       const Expanded(child: SizedBox()),
