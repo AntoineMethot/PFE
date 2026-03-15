@@ -92,14 +92,24 @@ class _ExerciseAnalysisScreenState extends State<ExerciseAnalysisScreen> {
                       separatorBuilder: (_, __) => const SizedBox(width: 10),
                       itemBuilder: (context, i) {
                         final selected = i == _selectedRepIndex;
+                        final hasInclinationWarning =
+                            reps[i].maxInclinationDeg >
+                            _inclinationWarnThreshold;
+
+                        Color backgroundColor;
+                        if (selected) {
+                          backgroundColor = const Color(0xFF2563EB);
+                        } else if (hasInclinationWarning) {
+                          backgroundColor = const Color(0xFFDC2626);
+                        } else {
+                          backgroundColor = const Color(0xFF1F2937);
+                        }
 
                         return SizedBox(
                           width: 84,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: selected
-                                  ? const Color(0xFF2563EB)
-                                  : const Color(0xFF1F2937),
+                              backgroundColor: backgroundColor,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
