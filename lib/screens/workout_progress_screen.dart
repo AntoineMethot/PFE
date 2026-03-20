@@ -3,15 +3,13 @@ import 'package:flutter/material.dart';
 
 import '../services/ble_manager.dart';
 import '../services/ble_imu_stream.dart';
+import '../services/file_share_service.dart';
 import '../services/set_file_writer.dart';
 import '../screens/exercise_analysis_screen.dart';
 import '../services/csv_rep_analysis_service.dart';
 
 class WorkoutProgressScreen extends StatefulWidget {
-  const WorkoutProgressScreen({
-    super.key,
-    required this.exerciseName,
-  });
+  const WorkoutProgressScreen({super.key, required this.exerciseName});
 
   final String exerciseName;
 
@@ -42,7 +40,8 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
     if (BleManager.I.device == null || !BleManager.I.isConnected) {
       setState(() {
         _starting = false;
-        _status = "Aucun appareil BLE connecte. Ouvrez d abord Connexion des appareils.";
+        _status =
+            "Aucun appareil BLE connecte. Ouvrez d abord Connexion des appareils.";
       });
       return;
     }
@@ -109,7 +108,8 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       if (!mounted) return;
       setState(() {
         _stopping = false;
-        _status = "${BleImuStream.I.buffer.length} echantillons sauvegardes :\n${file.path}";
+        _status =
+            "${BleImuStream.I.buffer.length} echantillons sauvegardes :\n${file.path}";
       });
     } catch (e) {
       if (!mounted) return;
@@ -120,39 +120,62 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
     }
   }
 
-  // 2) Replace your current _openAnalysis() with this one
-Future<void> _openAnalysis() async {
-  final path = _lastSavedCsvPath;
-  if (path == null) return;
+  Future<void> _shareLastCsv() async {
+    final path = _lastSavedCsvPath;
+    if (path == null) return;
 
-  try {
-    setState(() => _status = "Analyse du CSV...");
-
-    final reps = await CsvRepAnalysisService.analyzeFile(path);
-
-    if (!mounted) return;
-
-    if (reps.isEmpty) {
-      setState(() => _status = "Aucune repetition detectee (essayez de baisser les seuils).");
-      return;
+    try {
+      await FileShareService.shareCsvFile(
+        path,
+        context: context,
+        text: 'Export CSV - ${widget.exerciseName}',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Echec du partage du CSV : $e')));
     }
-
-    // Clear status (optional)
-    setState(() => _status = null);
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ExerciseAnalysisScreen(
-          exerciseName: widget.exerciseName,
-          reps: reps,
-        ),
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
-    setState(() => _status = "Echec de l analyse : $e");
   }
-}
+
+  // 2) Replace your current _openAnalysis() with this one
+  Future<void> _openAnalysis() async {
+    final path = _lastSavedCsvPath;
+    if (path == null) return;
+
+    try {
+      setState(() => _status = "Analyse du CSV...");
+
+      final reps = await CsvRepAnalysisService.analyzeFile(path);
+
+      if (!mounted) return;
+
+      if (reps.isEmpty) {
+        setState(
+          () =>
+              _status =
+                  "Aucune repetition detectee (essayez de baisser les seuils).",
+        );
+        return;
+      }
+
+      // Clear status (optional)
+      setState(() => _status = null);
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder:
+              (_) => ExerciseAnalysisScreen(
+                exerciseName: widget.exerciseName,
+                reps: reps,
+              ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _status = "Echec de l analyse : $e");
+    }
+  }
 
   String _formatTime(int ms) {
     final totalSeconds = (ms / 1000).floor();
@@ -174,6 +197,7 @@ Future<void> _openAnalysis() async {
 
     final canStop = !_starting && !_stopping;
     final canAnalyze = _lastSavedCsvPath != null && !_starting && !_stopping;
+    final canShare = _lastSavedCsvPath != null && !_starting && !_stopping;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
@@ -222,8 +246,8 @@ Future<void> _openAnalysis() async {
                     _starting
                         ? "Demarrage BLE..."
                         : _stopping
-                            ? "Arret..."
-                            : "Echantillons : $_sampleCount",
+                        ? "Arret..."
+                        : "Echantillons : $_sampleCount",
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: 16,
@@ -256,6 +280,31 @@ Future<void> _openAnalysis() async {
                       icon: const Icon(Icons.stop),
                       label: const Text(
                         "Arreter et sauvegarder",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0EA5E9),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: canShare ? _shareLastCsv : null,
+                      icon: const Icon(Icons.download_rounded),
+                      label: const Text(
+                        "Telecharger le CSV",
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
